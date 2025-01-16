@@ -1,0 +1,71 @@
+
+pipeline {
+    agent any
+
+    environment {
+        DOCKER_IMAGE_NAME = 'sindhu8878/mywebapps-img:v2.0'  // Update this with your Docker Hub username and image name
+        DOCKER_CREDENTIALS_ID = 'docker-credentials'  // Update with your Docker credentials ID
+    }
+
+    stages {
+        stage('SCM Checkout') {
+            steps {
+                echo 'Performing SCM Checkout'
+                git credentialsId: 'your-credentials-id', url: 'https://github.com/sindhu1988-ui/JavaMaven-Demo.git'
+            }
+        }
+
+        stage('Verify Files') {
+            steps {
+                echo 'Verifying Files'
+                // Add file verification logic here if necessary
+            }
+        }
+
+        stage('Application Build') {
+            steps {
+                echo 'Building Application'
+                sh 'mvn clean install'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                echo 'Building Docker Image'
+                script {
+                    sh "docker build -t ${DOCKER_IMAGE_NAME} ."
+                }
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                echo 'Pushing Docker Image'
+                withCredentials([usernamePassword(credentialsId: DOCKER_CREDENTIALS_ID, usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    sh "echo ${DOCKER_PASSWORD} | docker login -u ${DOCKER_USERNAME} --password-stdin"
+                    sh "docker push ${DOCKER_IMAGE_NAME}"
+                }
+            }
+        }
+
+        stage('Deploy to Test Server') {
+            when {
+                expression { return currentBuild.result == null || currentBuild.result == 'SUCCESS' }
+            }
+            steps {
+                echo 'Deploying to Test Server'
+                // Add deployment steps here if necessary
+            }
+        }
+    }
+
+    post {
+        always {
+            echo 'Cleaning up'
+            // Add any necessary cleanup steps here
+        }
+        failure {
+            echo 'Pipeline failed'
+        }
+    }
+}
